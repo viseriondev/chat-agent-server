@@ -5,7 +5,7 @@
                "script": "npm",
                "args": "start",
                "env": {
-                    "PORT": "8080"
+                    "PORT": "8000"
                }
           }
      ]
