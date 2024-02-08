@@ -1,0 +1,12 @@
+{
+     "apps": [
+          {
+               "name": "chat-agent-server",
+               "script": "npm",
+               "args": "start",
+               "env": {
+                    "PORT": "8080"
+               }
+          }
+     ]
+}
