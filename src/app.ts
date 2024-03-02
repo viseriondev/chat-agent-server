@@ -72,11 +72,10 @@ io.on("connection", async (socket) => {
                );
                socket.emit("useChatData", chat);
           } else {
-               const data = new Chat({
+               await new Chat({
                     roomId: id,
                     messages: [{ body: `Student Connected With ${state}`, userType: "SYSTEM", msgOn: new Date() }],
                }).save();
-
                socket.emit("useChatData", chat);
           }
 
@@ -111,16 +110,54 @@ io.on("connection", async (socket) => {
                     },
                     {}
                );
-
                const chat = await Chat.findOne({ roomId: id });
+
                socket.emit("useChatData", chat);
           }
      });
 
-     socket.on("agentConnected", (data) => {
-          console.log(data);
-     });
+     const chat = await Chat.find();
+     socket.emit("GetAllChats", chat);
+     socket.on("getRoomToJoin", async (fetchRoom) => {
+          const receivedChat = await Chat.findOneAndUpdate(
+               { roomId: fetchRoom },
+               {
+                    $push: {
+                         messages: {
+                              body: `agent connected on ${moment().format()}`,
+                              userType: "SYSTEM",
+                              msgOn: new Date(),
+                         },
+                    },
+               }
+          );
 
+          io.emit("agentJoined", receivedChat);
+     });
+     socket.on("sendMessage", async (payload: any) => {
+          console.log("SEND MESSAGE EVENT", payload);
+          const updateMessage = await Chat.updateOne(
+               { roomId: payload.roomId },
+               {
+                    $push: {
+                         messages: {
+                              body: payload.message,
+                              userType: payload.userType,
+                              msgOn: new Date().toString(),
+                         },
+                    },
+               },
+               {}
+          );
+          if (updateMessage.modifiedCount !== 0) {
+               const chat = await Chat.findOne({ roomId: payload.roomId });
+               socket.emit("message", chat);
+          }
+     });
+     socket.on("getSelectedId", async (id) => {
+          const fetchChatById = await Chat.findOne({ roomId: id });
+          socket.emit("getChatData", fetchChatById);
+     });
      socket.on("disconnect", () => {});
 });
 
@@ -147,7 +184,6 @@ app.post(`/${agent}/login`, async (req: Request, res: Response) => {
                });
           } else {
                const agent = await Agent.findOne({ email });
-               console.log(agent);
                if (!agent) {
                     return res.status(401).json({
                          error: "no agent found with this email",
@@ -193,7 +229,6 @@ app.post("/agent/logout", (req: Request, res: Response) => {
 app.get("/agent/profile", async (req: Request, res: Response) => {
      try {
           const headers = req.headers.authorization;
-          console.log(headers);
           if (!headers) {
                return res.status(400).json("please login");
           }
@@ -235,6 +270,15 @@ app.post(`/${agent}/register`, async (req: Request, res: Response) => {
                     success: false,
                });
           }
+     } catch (err) {
+          return res.status(401).json(err);
+     }
+});
+
+app.get("/chats", async (req: Request, res: Response) => {
+     try {
+          const chats = await Chat.find();
+          return res.status(200).json(chats);
      } catch (err) {
           return res.status(401).json(err);
      }
